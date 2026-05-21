@@ -13,12 +13,11 @@ from telegram.ext import (
 )
 import asyncio
 
-TOKEN = "8512205904:AAEZsjDnJI5fs8dfvp1QJPp3hC3JHBevZ-o"
+TOKEN = "YOUR_BOT_TOKEN"
 
-# Текст стартового сообщения
 START_TEXT = (
     "Привет, это UDD⚡️\n"
-    "Заполни форму:\n"
+    "звполни форму:\n"
     "1. Опыт работы\n"
     "2. Уделяемое время"
 )
@@ -29,15 +28,14 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(START_TEXT)
 
 
-# Обработка любого сообщения
+# Любое сообщение
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_text = update.message.text
 
+    # КНОПКИ ПО ОДНОЙ В СТРОЧКЕ
     keyboard = InlineKeyboardMarkup([
-        [
-            InlineKeyboardButton("Отправить", callback_data="send"),
-            InlineKeyboardButton("Заново", callback_data="restart"),
-        ]
+        [InlineKeyboardButton("Отправить", callback_data="send")],
+        [InlineKeyboardButton("Заново", callback_data="restart")],
     ])
 
     await update.message.reply_text(
@@ -51,32 +49,26 @@ async def buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
-    # Кнопка "Заново"
+    # Заново
     if query.data == "restart":
         await query.message.reply_text(START_TEXT)
 
-    # Кнопка "Отправить"
+    # Отправить
     elif query.data == "send":
         await query.message.reply_text("Заявка отправлена, ожидайте...")
 
-        # Ожидание 45 секунд
         await asyncio.sleep(45)
 
-        # Сообщение после ожидания
         await query.message.reply_text(
             "Ваша заявка одобрена, приступайте!"
         )
 
-        # Главное меню
+        # ГЛАВНОЕ МЕНЮ — КНОПКИ ПО ОДНОЙ В СТРОЧКЕ
         menu_keyboard = InlineKeyboardMarkup([
-            [
-                InlineKeyboardButton("Профиль", callback_data="profile"),
-                InlineKeyboardButton("Зеркало", callback_data="mirror"),
-            ],
-            [
-                InlineKeyboardButton("Каналы", callback_data="channels"),
-                InlineKeyboardButton("Помощь", callback_data="help"),
-            ]
+            [InlineKeyboardButton("Профиль", callback_data="profile")],
+            [InlineKeyboardButton("Зеркало", callback_data="mirror")],
+            [InlineKeyboardButton("Каналы", callback_data="channels")],
+            [InlineKeyboardButton("Помощь", callback_data="help")],
         ])
 
         await query.message.reply_text(
