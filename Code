@@ -13,7 +13,7 @@ from telegram.ext import (
 )
 import asyncio
 
-TOKEN = "YOUR_BOT_TOKEN"
+TOKEN = "8512205904:AAEZsjDnJI5fs8dfvp1QJPp3hC3JHBevZ-o"
 
 START_TEXT = (
     "Привет, это UDD⚡️\n\n"
