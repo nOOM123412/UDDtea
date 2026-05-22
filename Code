@@ -17,7 +17,7 @@ from aiogram.types import (
 # ==========================================
 # ТОКЕН
 # ==========================================
-TOKEN = "8838979890:AAE1cglbrlgwqd8g6xzI9zBZzb7QW51bBnI"
+TOKEN = "8921021991:AAHHGcR-A1bucT56VoUQ1MXJi4Mi6YtoOAs"
 
 bot = Bot(
     token=TOKEN,
