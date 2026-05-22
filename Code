@@ -1,92 +1,271 @@
-from telegram import (
-    Update,
-    InlineKeyboardButton,
-    InlineKeyboardMarkup,
-)
-from telegram.ext import (
-    Application,
-    CommandHandler,
-    MessageHandler,
-    CallbackQueryHandler,
-    ContextTypes,
-    filters,
-)
 import asyncio
+import json
+import os
+
+from aiogram import Bot, Dispatcher, F
+from aiogram.client.default import DefaultBotProperties
+from aiogram.enums import ParseMode
+from aiogram.filters import CommandStart
+from aiogram.types import (
+    Message,
+    CallbackQuery,
+    InlineKeyboardMarkup,
+    InlineKeyboardButton,
+    FSInputFile,
+)
 
 TOKEN = "8512205904:AAEZsjDnJI5fs8dfvp1QJPp3hC3JHBevZ-o"
 
-START_TEXT = (
-    "Привет, это UDD⚡️\n\n"
-    "Заполни форму:\n\n"
-    "1. Опыт работы\n"
-    "2. Уделяемое время"
+bot = Bot(
+    token=TOKEN,
+    default=DefaultBotProperties(parse_mode=ParseMode.HTML)
 )
 
+dp = Dispatcher()
 
-# /start
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(START_TEXT)
+# -----------------------------
+# ФАЙЛ ПАМЯТИ
+# -----------------------------
+DB_FILE = "users.json"
+
+# Фото из папки /app/shared
+PHOTO_PATH = "/app/shared/udd.jpg"
 
 
-# Любое сообщение
-async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_text = update.message.text
+# -----------------------------
+# ЗАГРУЗКА БАЗЫ
+# -----------------------------
+def load_db():
+    if not os.path.exists(DB_FILE):
+        return {}
 
-    # КНОПКИ ПО ОДНОЙ В СТРОЧКЕ
-    keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("Отправить", callback_data="send")],
-        [InlineKeyboardButton("Заново", callback_data="restart")],
-    ])
+    with open(DB_FILE, "r", encoding="utf-8") as file:
+        return json.load(file)
 
-    await update.message.reply_text(
-        f'Ваше сообщение:\n"{user_text}"',
-        reply_markup=keyboard
+
+# -----------------------------
+# СОХРАНЕНИЕ БАЗЫ
+# -----------------------------
+def save_db(data):
+    with open(DB_FILE, "w", encoding="utf-8") as file:
+        json.dump(data, file, ensure_ascii=False, indent=4)
+
+
+db = load_db()
+
+
+# -----------------------------
+# КНОПКИ ПОДТВЕРЖДЕНИЯ
+# -----------------------------
+def confirm_keyboard():
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="Отправить заявку",
+                    callback_data="send_form"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="Заполнить заново",
+                    callback_data="rewrite_form"
+                )
+            ]
+        ]
     )
 
 
-# Обработка кнопок
-async def buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
+# -----------------------------
+# ГЛАВНОЕ МЕНЮ
+# -----------------------------
+def main_menu():
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="Профиль",
+                    callback_data="profile"
+                ),
+                InlineKeyboardButton(
+                    text="Зеркало",
+                    callback_data="mirror"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="Каналы",
+                    callback_data="channels"
+                ),
+                InlineKeyboardButton(
+                    text="Помощь",
+                    callback_data="help"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="Настройки",
+                    callback_data="settings"
+                ),
+                InlineKeyboardButton(
+                    text="Ресурсы",
+                    callback_data="resources"
+                )
+            ]
+        ]
+    )
 
-    # Заново
-    if query.data == "restart":
-        await query.message.reply_text(START_TEXT)
 
-    # Отправить
-    elif query.data == "send":
-        await query.message.reply_text("Заявка отправлена, ожидайте...")
+# -----------------------------
+# ОТПРАВКА ПАНЕЛИ
+# -----------------------------
+async def send_panel(user_id):
+    photo = FSInputFile(PHOTO_PATH)
 
-        await asyncio.sleep(45)
-
-        await query.message.reply_text(
-            "Ваша заявка одобрена, приступайте!"
-        )
-
-        # ГЛАВНОЕ МЕНЮ — КНОПКИ ПО ОДНОЙ В СТРОЧКЕ
-        menu_keyboard = InlineKeyboardMarkup([
-            [InlineKeyboardButton("Профиль", callback_data="profile")],
-            [InlineKeyboardButton("Зеркало", callback_data="mirror")],
-            [InlineKeyboardButton("Каналы", callback_data="channels")],
-            [InlineKeyboardButton("Помощь", callback_data="help")],
-        ])
-
-        await query.message.reply_text(
-            "Главное меню:",
-            reply_markup=menu_keyboard
-        )
+    await bot.send_photo(
+        chat_id=user_id,
+        photo=photo,
+        caption="Панель управления",
+        reply_markup=main_menu()
+    )
 
 
-def main():
-    app = Application.builder().token(TOKEN).build()
+# -----------------------------
+# /START
+# -----------------------------
+@dp.message(CommandStart())
+async def start_handler(message: Message):
+    user_id = str(message.from_user.id)
 
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-    app.add_handler(CallbackQueryHandler(buttons))
+    # Если уже одобрен
+    if user_id in db and db[user_id]["approved"]:
+        await send_panel(message.from_user.id)
+        return
 
-    print("Бот запущен...")
-    app.run_polling()
+    # Если новый пользователь
+    await message.answer(
+        "Добро пожаловать в UDD team!\n\n"
+        "Просим вас оставить заявку для вступления по форме ниже:\n\n"
+        "1. Ваш опыт работы.\n"
+        "2. Рабочее время.\n"
+        "3. Откуда узнали о нас?"
+    )
+
+
+# -----------------------------
+# ПОЛУЧЕНИЕ ЗАЯВКИ
+# -----------------------------
+@dp.message()
+async def form_handler(message: Message):
+    user_id = str(message.from_user.id)
+
+    db[user_id] = {
+        "form": message.text,
+        "approved": False
+    }
+
+    save_db(db)
+
+    await message.answer(
+        f'Ваша заявка:\n\n"{message.text}"\n\nВсё верно?',
+        reply_markup=confirm_keyboard()
+    )
+
+
+# -----------------------------
+# ЗАПОЛНИТЬ ЗАНОВО
+# -----------------------------
+@dp.callback_query(F.data == "rewrite_form")
+async def rewrite_form(callback: CallbackQuery):
+    await callback.message.answer(
+        "Заполните заявку заново:\n\n"
+        "1. Ваш опыт работы.\n"
+        "2. Рабочее время.\n"
+        "3. Откуда узнали о нас?"
+    )
+
+    await callback.answer()
+
+
+# -----------------------------
+# ОТПРАВКА ЗАЯВКИ
+# -----------------------------
+@dp.callback_query(F.data == "send_form")
+async def send_form(callback: CallbackQuery):
+    user_id = str(callback.from_user.id)
+
+    await callback.message.answer(
+        "Ваша заявка отправлена, ожидайте решения модерации."
+    )
+
+    await callback.answer()
+
+    # Ожидание модерации
+    await asyncio.sleep(50)
+
+    # Одобряем
+    db[user_id]["approved"] = True
+    save_db(db)
+
+    await bot.send_message(
+        callback.from_user.id,
+        "Ваша заявка была одобрена!"
+    )
+
+    await send_panel(callback.from_user.id)
+
+
+# -----------------------------
+# ПРОФИЛЬ
+# -----------------------------
+@dp.callback_query(F.data == "profile")
+async def profile_handler(callback: CallbackQuery):
+    photo = FSInputFile(PHOTO_PATH)
+
+    await bot.send_photo(
+        chat_id=callback.from_user.id,
+        photo=photo,
+        caption="Это ваш профиль."
+    )
+
+    await callback.answer()
+
+
+# -----------------------------
+# ОСТАЛЬНЫЕ КНОПКИ
+# -----------------------------
+@dp.callback_query(F.data == "mirror")
+async def mirror_handler(callback: CallbackQuery):
+    await callback.answer("Раздел Зеркало", show_alert=True)
+
+
+@dp.callback_query(F.data == "channels")
+async def channels_handler(callback: CallbackQuery):
+    await callback.answer("Раздел Каналы", show_alert=True)
+
+
+@dp.callback_query(F.data == "help")
+async def help_handler(callback: CallbackQuery):
+    await callback.answer("Раздел Помощь", show_alert=True)
+
+
+@dp.callback_query(F.data == "settings")
+async def settings_handler(callback: CallbackQuery):
+    await callback.answer("Раздел Настройки", show_alert=True)
+
+
+@dp.callback_query(F.data == "resources")
+async def resources_handler(callback: CallbackQuery):
+    await callback.answer("Раздел Ресурсы", show_alert=True)
+
+
+# -----------------------------
+# ЗАПУСК
+# -----------------------------
+async def main():
+    print("Бот запущен")
+    await dp.start_polling(bot)
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
