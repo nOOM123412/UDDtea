@@ -14,9 +14,9 @@ from aiogram.types import (
     FSInputFile,
 )
 
-# ==========================================
-# ТОКЕН БОТА
-# ==========================================
+# =========================
+# ТОКЕН
+# =========================
 TOKEN = "8512205904:AAEZsjDnJI5fs8dfvp1QJPp3hC3JHBevZ-o"
 
 bot = Bot(
@@ -26,154 +26,118 @@ bot = Bot(
 
 dp = Dispatcher()
 
-# ==========================================
-# ФАЙЛ БАЗЫ ДАННЫХ
-# ==========================================
+# =========================
+# ФАЙЛ БАЗЫ
+# =========================
 DB_FILE = "users.json"
 
-# ==========================================
-# ПУТЬ К ФОТО
-# ==========================================
+# =========================
+# ФОТО
+# =========================
 PHOTO_PATH = "/app/shared/tmpqe0mpymm.jpg"
 
 
-# ==========================================
-# ЗАГРУЗКА БАЗЫ
-# ==========================================
+# =========================
+# ЗАГРУЗКА БД
+# =========================
 def load_db():
     if not os.path.exists(DB_FILE):
         return {}
+    with open(DB_FILE, "r", encoding="utf-8") as f:
+        return json.load(f)
 
-    with open(DB_FILE, "r", encoding="utf-8") as file:
-        return json.load(file)
 
-
-# ==========================================
-# СОХРАНЕНИЕ БАЗЫ
-# ==========================================
+# =========================
+# СОХРАНЕНИЕ БД
+# =========================
 def save_db(data):
-    with open(DB_FILE, "w", encoding="utf-8") as file:
-        json.dump(
-            data,
-            file,
-            ensure_ascii=False,
-            indent=4
-        )
+    with open(DB_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=4)
 
 
 db = load_db()
 
 
-# ==========================================
+# =========================
 # КНОПКИ ПОДТВЕРЖДЕНИЯ
-# ==========================================
+# =========================
 def confirm_keyboard():
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
-                InlineKeyboardButton(
-                    text="Отправить",
-                    callback_data="send_form"
-                ),
-                InlineKeyboardButton(
-                    text="Переписать",
-                    callback_data="rewrite_form"
-                )
+                InlineKeyboardButton(text="Отправить", callback_data="send_form"),
+                InlineKeyboardButton(text="Переписать", callback_data="rewrite_form"),
             ]
         ]
     )
 
 
-# ==========================================
+# =========================
 # ГЛАВНОЕ МЕНЮ
-# ==========================================
+# =========================
 def main_menu():
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
-                InlineKeyboardButton(
-                    text="Профиль",
-                    callback_data="profile"
-                ),
-                InlineKeyboardButton(
-                    text="Зеркало",
-                    callback_data="mirror"
-                )
+                InlineKeyboardButton(text="Профиль", callback_data="profile"),
+                InlineKeyboardButton(text="Зеркало", callback_data="mirror"),
             ],
             [
-                InlineKeyboardButton(
-                    text="Каналы",
-                    callback_data="channels"
-                ),
-                InlineKeyboardButton(
-                    text="Помощь",
-                    callback_data="help"
-                )
+                InlineKeyboardButton(text="Каналы", callback_data="channels"),
+                InlineKeyboardButton(text="Помощь", callback_data="help"),
             ],
             [
-                InlineKeyboardButton(
-                    text="Настройки",
-                    callback_data="settings"
-                ),
-                InlineKeyboardButton(
-                    text="Ресурсы",
-                    callback_data="resources"
-                )
-            ]
+                InlineKeyboardButton(text="Настройки", callback_data="settings"),
+                InlineKeyboardButton(text="Ресурсы", callback_data="resources"),
+            ],
         ]
     )
 
 
-# ==========================================
-# ОТПРАВКА ГЛАВНОГО МЕНЮ
-# ==========================================
-async def send_main_menu(user_id):
-    photo = FSInputFile(PHOTO_PATH)
-
+# =========================
+# ОТПРАВКА МЕНЮ
+# =========================
+async def send_menu(user_id):
     await bot.send_photo(
         chat_id=user_id,
-        photo=photo,
+        photo=FSInputFile(PHOTO_PATH),
         caption="Панель управления",
         reply_markup=main_menu()
     )
 
 
-# ==========================================
-# КОМАНДА /start
-# ==========================================
+# =========================
+# /START
+# =========================
 @dp.message(CommandStart())
-async def start_handler(message: Message):
-    user_id = str(message.from_user.id)
+async def start(message: Message):
+    uid = str(message.from_user.id)
 
-    # Если пользователь уже одобрен
-    if user_id in db and db[user_id]["approved"]:
-        await send_main_menu(message.from_user.id)
+    if uid in db and db[uid].get("approved"):
+        await send_menu(message.from_user.id)
         return
 
-    # Если новый пользователь
     await message.answer(
         "Добро пожаловать в UDD team!\n\n"
-        "Просим вас оставить заявку для вступления по форме ниже:\n\n"
-        "1. Ваш опыт работы.\n"
-        "2. Рабочее время.\n"
-        "3. Откуда узнали о нас?"
+        "Оставьте заявку:\n"
+        "1. Опыт работы\n"
+        "2. Рабочее время\n"
+        "3. Откуда узнали о нас"
     )
 
 
-# ==========================================
-# ПОЛУЧЕНИЕ ЗАЯВКИ
-# ==========================================
+# =========================
+# ЗАЯВКА
+# =========================
 @dp.message()
-async def form_handler(message: Message):
-    user_id = str(message.from_user.id)
+async def form(message: Message):
+    uid = str(message.from_user.id)
 
-    # Если пользователь уже одобрен
-    if user_id in db and db[user_id]["approved"]:
-        await send_main_menu(message.from_user.id)
+    if uid in db and db[uid].get("approved"):
+        await send_menu(message.from_user.id)
         return
 
-    # Сохраняем заявку
-    db[user_id] = {
+    db[uid] = {
         "form": message.text,
         "approved": False
     }
@@ -186,27 +150,26 @@ async def form_handler(message: Message):
     )
 
 
-# ==========================================
+# =========================
 # ПЕРЕПИСАТЬ
-# ==========================================
+# =========================
 @dp.callback_query(F.data == "rewrite_form")
-async def rewrite_form(callback: CallbackQuery):
+async def rewrite(callback: CallbackQuery):
     await callback.message.answer(
         "Заполните заявку заново:\n\n"
-        "1. Ваш опыт работы.\n"
-        "2. Рабочее время.\n"
-        "3. Откуда узнали о нас?"
+        "1. Опыт работы\n"
+        "2. Рабочее время\n"
+        "3. Откуда узнали о нас"
     )
-
     await callback.answer()
 
 
-# ==========================================
-# ОТПРАВКА ЗАЯВКИ
-# ==========================================
+# =========================
+# ОТПРАВИТЬ + МОДЕРАЦИЯ
+# =========================
 @dp.callback_query(F.data == "send_form")
-async def send_form(callback: CallbackQuery):
-    user_id = str(callback.from_user.id)
+async def send(callback: CallbackQuery):
+    uid = str(callback.from_user.id)
 
     await callback.message.answer(
         "Ваша заявка отправлена, ожидайте решения модерации."
@@ -214,91 +177,46 @@ async def send_form(callback: CallbackQuery):
 
     await callback.answer()
 
-    # Ждем 50 секунд
     await asyncio.sleep(50)
 
-    # Одобряем пользователя
-    db[user_id]["approved"] = True
+    db[uid]["approved"] = True
     save_db(db)
 
-    # Сначала сообщение
-    await bot.send_message(
-        callback.from_user.id,
-        "Ваша заявка была одобрена!"
-    )
-
-    # Потом сразу открываем меню
-    await send_main_menu(callback.from_user.id)
-
-
-# ==========================================
-# ПРОФИЛЬ
-# ==========================================
-@dp.callback_query(F.data == "profile")
-async def profile_handler(callback: CallbackQuery):
-    photo = FSInputFile(PHOTO_PATH)
-
+    # СРАЗУ: ОДНО СООБЩЕНИЕ (ОДОБРЕНО + МЕНЮ)
     await bot.send_photo(
         chat_id=callback.from_user.id,
-        photo=photo,
-        caption="Это ваш профиль.",
+        photo=FSInputFile(PHOTO_PATH),
+        caption="Ваша заявка была одобрена!\n\nПанель управления",
         reply_markup=main_menu()
     )
 
+
+# =========================
+# ПРОФИЛЬ
+# =========================
+@dp.callback_query(F.data == "profile")
+async def profile(callback: CallbackQuery):
+    await bot.send_photo(
+        callback.from_user.id,
+        FSInputFile(PHOTO_PATH),
+        caption="Это ваш профиль."
+    )
     await callback.answer()
 
 
-# ==========================================
-# ЗЕРКАЛО
-# ==========================================
-@dp.callback_query(F.data == "mirror")
-async def mirror_handler(callback: CallbackQuery):
-    await callback.message.answer("Раздел Зеркало")
-    await callback.answer()
+# =========================
+# ПРОЧИЕ КНОПКИ
+# =========================
+@dp.callback_query(F.data.in_({"mirror", "channels", "help", "settings", "resources"}))
+async def other(callback: CallbackQuery):
+    await callback.answer("Раздел в разработке", show_alert=True)
 
 
-# ==========================================
-# КАНАЛЫ
-# ==========================================
-@dp.callback_query(F.data == "channels")
-async def channels_handler(callback: CallbackQuery):
-    await callback.message.answer("Раздел Каналы")
-    await callback.answer()
-
-
-# ==========================================
-# ПОМОЩЬ
-# ==========================================
-@dp.callback_query(F.data == "help")
-async def help_handler(callback: CallbackQuery):
-    await callback.message.answer("Раздел Помощь")
-    await callback.answer()
-
-
-# ==========================================
-# НАСТРОЙКИ
-# ==========================================
-@dp.callback_query(F.data == "settings")
-async def settings_handler(callback: CallbackQuery):
-    await callback.message.answer("Раздел Настройки")
-    await callback.answer()
-
-
-# ==========================================
-# РЕСУРСЫ
-# ==========================================
-@dp.callback_query(F.data == "resources")
-async def resources_handler(callback: CallbackQuery):
-    await callback.message.answer("Раздел Ресурсы")
-    await callback.answer()
-
-
-# ==========================================
+# =========================
 # ЗАПУСК
-# ==========================================
+# =========================
 async def main():
-    print("Бот успешно запущен")
-
+    print("Bot started")
     await dp.start_polling(bot)
 
 
