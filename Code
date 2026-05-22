@@ -14,6 +14,9 @@ from aiogram.types import (
     FSInputFile,
 )
 
+# =========================
+# ТОКЕН БОТА
+# =========================
 TOKEN = "8512205904:AAEZsjDnJI5fs8dfvp1QJPp3hC3JHBevZ-o"
 
 bot = Bot(
@@ -23,18 +26,23 @@ bot = Bot(
 
 dp = Dispatcher()
 
-# -----------------------------
-# ФАЙЛ ПАМЯТИ
-# -----------------------------
+# =========================
+# ФАЙЛ БАЗЫ ДАННЫХ
+# =========================
 DB_FILE = "users.json"
 
-# Фото из папки /app/shared
-PHOTO_PATH = "/app/shared/udd.jpg"
+# =========================
+# ПУТЬ К ФОТО
+# =========================
+PHOTO_PATH = "/app/shared/tmpqe0mpymm.jpg"
+
+# Если у файла другое расширение:
+# PHOTO_PATH = "/app/shared/tmpqe0mpymm.png"
 
 
-# -----------------------------
+# =========================
 # ЗАГРУЗКА БАЗЫ
-# -----------------------------
+# =========================
 def load_db():
     if not os.path.exists(DB_FILE):
         return {}
@@ -43,32 +51,35 @@ def load_db():
         return json.load(file)
 
 
-# -----------------------------
+# =========================
 # СОХРАНЕНИЕ БАЗЫ
-# -----------------------------
+# =========================
 def save_db(data):
     with open(DB_FILE, "w", encoding="utf-8") as file:
-        json.dump(data, file, ensure_ascii=False, indent=4)
+        json.dump(
+            data,
+            file,
+            ensure_ascii=False,
+            indent=4
+        )
 
 
 db = load_db()
 
 
-# -----------------------------
+# =========================
 # КНОПКИ ПОДТВЕРЖДЕНИЯ
-# -----------------------------
+# =========================
 def confirm_keyboard():
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text="Отправить заявку",
+                    text="Отправить",
                     callback_data="send_form"
-                )
-            ],
-            [
+                ),
                 InlineKeyboardButton(
-                    text="Заполнить заново",
+                    text="Переписать",
                     callback_data="rewrite_form"
                 )
             ]
@@ -76,9 +87,9 @@ def confirm_keyboard():
     )
 
 
-# -----------------------------
+# =========================
 # ГЛАВНОЕ МЕНЮ
-# -----------------------------
+# =========================
 def main_menu():
     return InlineKeyboardMarkup(
         inline_keyboard=[
@@ -116,9 +127,9 @@ def main_menu():
     )
 
 
-# -----------------------------
+# =========================
 # ОТПРАВКА ПАНЕЛИ
-# -----------------------------
+# =========================
 async def send_panel(user_id):
     photo = FSInputFile(PHOTO_PATH)
 
@@ -130,19 +141,19 @@ async def send_panel(user_id):
     )
 
 
-# -----------------------------
-# /START
-# -----------------------------
+# =========================
+# КОМАНДА /start
+# =========================
 @dp.message(CommandStart())
 async def start_handler(message: Message):
     user_id = str(message.from_user.id)
 
-    # Если уже одобрен
+    # Если пользователь уже одобрен
     if user_id in db and db[user_id]["approved"]:
         await send_panel(message.from_user.id)
         return
 
-    # Если новый пользователь
+    # Если пользователь новый
     await message.answer(
         "Добро пожаловать в UDD team!\n\n"
         "Просим вас оставить заявку для вступления по форме ниже:\n\n"
@@ -152,13 +163,14 @@ async def start_handler(message: Message):
     )
 
 
-# -----------------------------
+# =========================
 # ПОЛУЧЕНИЕ ЗАЯВКИ
-# -----------------------------
+# =========================
 @dp.message()
 async def form_handler(message: Message):
     user_id = str(message.from_user.id)
 
+    # Сохраняем заявку
     db[user_id] = {
         "form": message.text,
         "approved": False
@@ -166,15 +178,16 @@ async def form_handler(message: Message):
 
     save_db(db)
 
+    # Подтверждение заявки
     await message.answer(
         f'Ваша заявка:\n\n"{message.text}"\n\nВсё верно?',
         reply_markup=confirm_keyboard()
     )
 
 
-# -----------------------------
-# ЗАПОЛНИТЬ ЗАНОВО
-# -----------------------------
+# =========================
+# ПЕРЕПИСАТЬ
+# =========================
 @dp.callback_query(F.data == "rewrite_form")
 async def rewrite_form(callback: CallbackQuery):
     await callback.message.answer(
@@ -187,9 +200,9 @@ async def rewrite_form(callback: CallbackQuery):
     await callback.answer()
 
 
-# -----------------------------
-# ОТПРАВКА ЗАЯВКИ
-# -----------------------------
+# =========================
+# ОТПРАВИТЬ ЗАЯВКУ
+# =========================
 @dp.callback_query(F.data == "send_form")
 async def send_form(callback: CallbackQuery):
     user_id = str(callback.from_user.id)
@@ -203,21 +216,23 @@ async def send_form(callback: CallbackQuery):
     # Ожидание модерации
     await asyncio.sleep(50)
 
-    # Одобряем
+    # Одобрение пользователя
     db[user_id]["approved"] = True
     save_db(db)
 
+    # Сообщение об одобрении
     await bot.send_message(
         callback.from_user.id,
         "Ваша заявка была одобрена!"
     )
 
+    # Панель управления
     await send_panel(callback.from_user.id)
 
 
-# -----------------------------
+# =========================
 # ПРОФИЛЬ
-# -----------------------------
+# =========================
 @dp.callback_query(F.data == "profile")
 async def profile_handler(callback: CallbackQuery):
     photo = FSInputFile(PHOTO_PATH)
@@ -231,39 +246,67 @@ async def profile_handler(callback: CallbackQuery):
     await callback.answer()
 
 
-# -----------------------------
-# ОСТАЛЬНЫЕ КНОПКИ
-# -----------------------------
+# =========================
+# ЗЕРКАЛО
+# =========================
 @dp.callback_query(F.data == "mirror")
 async def mirror_handler(callback: CallbackQuery):
-    await callback.answer("Раздел Зеркало", show_alert=True)
+    await callback.answer(
+        "Раздел Зеркало",
+        show_alert=True
+    )
 
 
+# =========================
+# КАНАЛЫ
+# =========================
 @dp.callback_query(F.data == "channels")
 async def channels_handler(callback: CallbackQuery):
-    await callback.answer("Раздел Каналы", show_alert=True)
+    await callback.answer(
+        "Раздел Каналы",
+        show_alert=True
+    )
 
 
+# =========================
+# ПОМОЩЬ
+# =========================
 @dp.callback_query(F.data == "help")
 async def help_handler(callback: CallbackQuery):
-    await callback.answer("Раздел Помощь", show_alert=True)
+    await callback.answer(
+        "Раздел Помощь",
+        show_alert=True
+    )
 
 
+# =========================
+# НАСТРОЙКИ
+# =========================
 @dp.callback_query(F.data == "settings")
 async def settings_handler(callback: CallbackQuery):
-    await callback.answer("Раздел Настройки", show_alert=True)
+    await callback.answer(
+        "Раздел Настройки",
+        show_alert=True
+    )
 
 
+# =========================
+# РЕСУРСЫ
+# =========================
 @dp.callback_query(F.data == "resources")
 async def resources_handler(callback: CallbackQuery):
-    await callback.answer("Раздел Ресурсы", show_alert=True)
+    await callback.answer(
+        "Раздел Ресурсы",
+        show_alert=True
+    )
 
 
-# -----------------------------
-# ЗАПУСК
-# -----------------------------
+# =========================
+# ЗАПУСК БОТА
+# =========================
 async def main():
-    print("Бот запущен")
+    print("Бот успешно запущен")
+
     await dp.start_polling(bot)
 
 
